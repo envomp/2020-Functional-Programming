@@ -23,19 +23,17 @@ cycle stack (S x) = (cycle stack x) ++ stack
 
 -- 5
 
-odds: List Integer -> List Integer
+odds: List ty -> List ty
 odds [] = []
-odds (num :: toDeal) = if ((mod num 2) == 1)
-                        then ((odds toDeal) ++ [num])
-                        else (odds toDeal)
+odds (a :: b :: xs) = (a :: odds xs)
+odds (a :: xs) = [a]
 
-evens: List Integer -> List Integer
+evens: List ty -> List ty
 evens [] = []
-evens (num :: toDeal) = if ((mod num 2) == 0)
-                        then ((evens toDeal) ++ [num])
-                        else (evens toDeal)
+evens (a :: b :: xs) = (b :: evens xs)
+evens (a :: xs) = []
 
-deal: List Integer -> (List Integer, List Integer)
+deal: List ty -> (List ty, List ty)
 deal a = ((evens a), (odds a))
 
 -- 6

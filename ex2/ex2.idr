@@ -1,3 +1,4 @@
+import Data.String
 
 -- 1
 
@@ -20,6 +21,15 @@ sumsquares (S a) = sumlist (map (\x => x * x) [0..a])
 
 -- 3
 
+interactive_addition: IO ()
+interactive_addition = do   input <- getLine
+                            print (sum (map (\f => parseInteger f) (words input)))
+                            interactive_addition
+
+-- TODO
+
+-- 4
+
 divisors: Integer -> List Integer
 divisors 0 = []
 divisors k = filter (\n => mod k n == 0) ([(- abs k)..(-1)] ++ [1..(abs k)])
@@ -29,7 +39,7 @@ posDivisors Z = []
 posDivisors k = filter (\n => mod k n == Z) ([(S Z)..k])
 
 
--- 4
+-- 5
 
 primality: Nat -> Bool
 primality Z = False

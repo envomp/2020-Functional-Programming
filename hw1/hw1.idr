@@ -18,9 +18,8 @@ titlecase str =  unwords (map (\a => customPack (unpack a)) (words str))
 -- 3
 
 interactive_titlecase: IO ()
-interactive_titlecase = do  input <- getLine
-                            putStrLn (titlecase input)
-                            interactive_titlecase
+interactive_titlecase = repl "\n" titlecase
+-- :exec interactive_titlecase
 
 -- 4
 

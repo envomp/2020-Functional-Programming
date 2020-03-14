@@ -39,7 +39,7 @@ create_row (S n) = Nothing :: (create_row n)
 
 create_board : Nat -> Board
 create_board Z = []
-create_board (S n) = (create_row 8) :: (create_board n)
+create_board (S n) = (create_row 9) :: (create_board n)
 
 ||| A function that determines whether or not a given pair of Nats actually indexes a position on the game board, according to our coordinate scheme.
 valid : Position -> Bool
@@ -97,27 +97,52 @@ set_on_board board (x, y) space = insert_board (x, y) board space
 -- Part Two: winning_move and losing_move --
 --------------------------------------------
 
-check_xs : List Space -> Player -> Nat -> Bool
-check_xs [] _ n = False
-check_xs xs _ (S (S (S (S Z)))) = True
-check_xs (Nothing :: rest) player n = check_xs rest player Z
-check_xs ((Just White) :: rest) White n = check_xs rest White (S n)
-check_xs ((Just Black) :: rest) Black n = check_xs rest Black (S n)
+check_3_xs : List Space -> Player -> Nat -> Bool
+check_3_xs xs _ (S (S (S Z))) = True
+check_3_xs [] _ n = False
+check_3_xs (Nothing :: rest) player n = check_3_xs rest player Z
+check_3_xs ((Just White) :: rest) White n = check_3_xs rest White (S n)
+check_3_xs ((Just White) :: rest) Black n = check_3_xs rest Black Z
+check_3_xs ((Just Black) :: rest) Black n = check_3_xs rest Black (S n)
+check_3_xs ((Just Black) :: rest) White n = check_3_xs rest White Z
 
-check_ys : Board -> Player -> Bool
-check_ys [] _ = False
-check_ys (row :: rest) player = if (check_xs row player Z)
+check_3_ys : Board -> Player -> Bool
+check_3_ys [] _ = False
+check_3_ys (row :: rest) player = if (check_3_xs row player Z)
                                 then True
-                                else check_ys rest player
+                                else check_3_ys rest player
+
+check_4_xs : List Space -> Player -> Nat -> Bool
+check_4_xs _ _ (S (S (S (S Z)))) = True
+check_4_xs [] _ n = False
+check_4_xs (Nothing :: rest) player n = check_4_xs rest player Z
+check_4_xs ((Just White) :: rest) White n = check_4_xs rest White (S n)
+check_4_xs ((Just White) :: rest) Black n = check_4_xs rest Black Z
+check_4_xs ((Just Black) :: rest) Black n = check_4_xs rest Black (S n)
+check_4_xs ((Just Black) :: rest) White n = check_4_xs rest White Z
+
+check_4_ys : Board -> Player -> Bool
+check_4_ys [] _ = False
+check_4_ys (row :: rest) player = if (check_4_xs row player Z)
+                                then True
+                                else check_4_ys rest player
+
+||| Transpose matrix
+transpose_list : List Space -> Board
+transpose_list [] = []
+transpose_list (x :: xs) = [x] :: transpose_list xs
+
+transpose_matrix : Board -> Board
+transpose_matrix [] = replicate 9 []
+transpose_matrix (x :: xs) = zipWith (++) (transpose_list x) (transpose_matrix xs)
 
 ||| If a player plays one of their pieces at the given position on the given board, do they win the game? Note that the position supplied must be valid for this to make sense.
 winning_move : Position -> Player -> Board -> Bool
-winning_move (x, y) player board = check_ys board player
+winning_move (x, y) player board = (check_4_ys board player) || (check_4_ys (transpose_matrix board) player)
 
 ||| If a player plays one of their pieces at the given position on the given board, do they lose the game? Note that the position supplied must be valid for this to make sense.
 losing_move : Position -> Player -> Board -> Bool
-losing_move (x, y) White board = False
-losing_move (x, y) Black board = False
+losing_move (x, y) player board = (check_3_ys board player) || (check_3_ys (transpose_matrix board) player)
 
 -----------------------
 -- Drawing The Board --
@@ -234,38 +259,49 @@ validate_input (x :: y :: z :: m) _ = Nothing
 mapper : String -> Board -> Maybe (Nat, Nat)
 mapper str board = validate_input (map (\a => parsePositive a) (words str)) board
 
-check_state : Board -> Game_state
-check_state board = Continues
+check_state : Board -> Position -> Game_state
+check_state board position = if (winning_move position White board) || (losing_move position Black board)
+                                   then White_wins
+                                   else if (losing_move position White board) || (winning_move position Black board)
+                                      then Black_wins
+                                      else Continues
 
 game_loop : Bool -> Board -> Game_state -> IO ()
-game_loop _ _ Draw = putStrLn "It's a Draw!"
-game_loop _ _ White_wins = putStrLn "White player wins!"
-game_loop _ _ Black_wins = putStrLn "Black player wins!"
+game_loop _ board Draw = do draw_board get_from_board valid board
+                            putStrLn "It's a Draw!"
+
+game_loop _ board White_wins = do draw_board get_from_board valid board
+                                  putStrLn "White player wins!"
+
+game_loop _ board Black_wins = do draw_board get_from_board valid board
+                                  putStrLn "Black player wins!"
+
 game_loop True board Continues = do draw_board get_from_board valid board
                                     putStrLn "Player B ?:"
                                     io_move <- getLine
                                     case mapper io_move board of
                                          Just (x, y) => do putStrLn ("your move was x=" ++ show x ++ " y=" ++ show y)
                                                            case get_from_board board (x, y) of
-                                                                Nothing => game_loop False (set_on_board board (x, y) (Just Black)) (check_state board)
+                                                                Nothing => game_loop False (set_on_board board (x, y) (Just Black)) (check_state (set_on_board board (x, y) (Just Black)) (x, y))
                                                                 Just x => do putStrLn "And it was occupied!"
                                                                              game_loop True board Continues
                                          Nothing => do putStrLn "Please select valid coordinates as follows 'x y'."
                                                        game_loop True board Continues
+
 game_loop False board Continues = do draw_board get_from_board valid board
                                      putStrLn "Player W ?:"
                                      io_move <- getLine
                                      case mapper io_move board of
                                           Just (x, y) => do putStrLn ("your move was x=" ++ show x ++ " y=" ++ show y)
                                                             case get_from_board board (x, y) of
-                                                                 Nothing => game_loop True (set_on_board board (x, y) (Just White)) (check_state board)
+                                                                 Nothing => game_loop True (set_on_board board (x, y) (Just White)) (check_state (set_on_board board (x, y) (Just White)) (x, y))
                                                                  Just x => do putStrLn "And it was occupied!"
                                                                               game_loop False board Continues
                                           Nothing => do putStrLn "Please select valid coordinates as follows 'x y'."
                                                         game_loop False board Continues
 
 new_game : IO ()
-new_game = game_loop True (create_board 8) Continues
+new_game = game_loop True (create_board 9) Continues
 
 
 -- Once you have implemented new_game, you can compile this file with "idris <file_name> -o game" to obtain an executable!

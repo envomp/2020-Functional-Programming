@@ -97,6 +97,8 @@ set_on_board board (x, y) space = insert_board (x, y) board space
 -- Part Two: winning_move and losing_move --
 --------------------------------------------
 
+-- check 3 in a row
+
 check_3_xs : List Space -> Player -> Nat -> Bool
 check_3_xs xs _ (S (S (S Z))) = True
 check_3_xs [] _ n = False
@@ -112,6 +114,8 @@ check_3_ys (row :: rest) player = if (check_3_xs row player Z)
                                 then True
                                 else check_3_ys rest player
 
+-- check
+
 check_4_xs : List Space -> Player -> Nat -> Bool
 check_4_xs _ _ (S (S (S (S Z)))) = True
 check_4_xs [] _ n = False
@@ -124,8 +128,51 @@ check_4_xs ((Just Black) :: rest) White n = check_4_xs rest White Z
 check_4_ys : Board -> Player -> Bool
 check_4_ys [] _ = False
 check_4_ys (row :: rest) player = if (check_4_xs row player Z)
-                                then True
-                                else check_4_ys rest player
+                                  then True
+                                  else check_4_ys rest player
+
+
+check_diagonal_3_xs : Board -> Nat -> Nat -> Player -> Nat -> Bool
+check_diagonal_3_xs board y x player (S (S (S Z))) = True
+check_diagonal_3_xs board y Z player n = False
+check_diagonal_3_xs board y (S x) White count = case get_from_board board (x, y) of
+                                                     Just White => check_diagonal_3_xs board y x White (S count)
+                                                     Just Black => check_diagonal_3_xs board y x White Z
+                                                     Nothing => check_diagonal_3_xs board y x White Z
+
+check_diagonal_3_xs board y (S x) Black count = case get_from_board board (x, y) of
+                                                     Just Black => check_diagonal_3_xs board y x Black (S count)
+                                                     Just White => check_diagonal_3_xs board y x Black Z
+                                                     Nothing => check_diagonal_3_xs board y x Black Z
+
+
+check_diagonal_3_ys : Board -> Nat -> Player -> Bool
+check_diagonal_3_ys board (S (S (S (S (S (S (S (S (S Z))))))))) player = False
+check_diagonal_3_ys board y player = if (check_diagonal_3_xs board y (S (S (S (S (S (S (S (S Z)))))))) player Z)
+                                     then True
+                                     else check_diagonal_3_ys board (S y) player
+
+
+check_diagonal_4_xs : Board -> Nat -> Nat -> Player -> Nat -> Bool
+check_diagonal_4_xs board y x player (S (S (S (S Z)))) = True
+check_diagonal_4_xs board y Z player n = False
+check_diagonal_4_xs board y (S x) White count = case get_from_board board (x, y) of
+                                                     Just White => check_diagonal_4_xs board y x White (S count)
+                                                     Just Black => check_diagonal_4_xs board y x White Z
+                                                     Nothing => check_diagonal_4_xs board y x White Z
+
+check_diagonal_4_xs board y (S x) Black count = case get_from_board board (x, y) of
+                                                     Just Black => check_diagonal_4_xs board y x Black (S count)
+                                                     Just White => check_diagonal_4_xs board y x Black Z
+                                                     Nothing => check_diagonal_4_xs board y x Black Z
+
+
+check_diagonal_4_ys : Board -> Nat -> Player -> Bool
+check_diagonal_4_ys board (S (S (S (S (S (S (S (S (S Z))))))))) player = False
+check_diagonal_4_ys board y player = if (check_diagonal_4_xs board y (S (S (S (S (S (S (S (S Z)))))))) player Z)
+                                     then True
+                                     else check_diagonal_4_ys board (S y) player
+
 
 ||| Transpose matrix
 transpose_list : List Space -> Board
@@ -138,11 +185,11 @@ transpose_matrix (x :: xs) = zipWith (++) (transpose_list x) (transpose_matrix x
 
 ||| If a player plays one of their pieces at the given position on the given board, do they win the game? Note that the position supplied must be valid for this to make sense.
 winning_move : Position -> Player -> Board -> Bool
-winning_move (x, y) player board = (check_4_ys board player) || (check_4_ys (transpose_matrix board) player)
+winning_move (x, y) player board = (check_4_ys board player) || (check_4_ys (transpose_matrix board) player) || (check_diagonal_4_ys board Z player)
 
 ||| If a player plays one of their pieces at the given position on the given board, do they lose the game? Note that the position supplied must be valid for this to make sense.
 losing_move : Position -> Player -> Board -> Bool
-losing_move (x, y) player board = (check_3_ys board player) || (check_3_ys (transpose_matrix board) player)
+losing_move (x, y) player board = (check_3_ys board player) || (check_3_ys (transpose_matrix board) player)  || (check_diagonal_3_ys board Z player)
 
 -----------------------
 -- Drawing The Board --
@@ -298,51 +345,97 @@ count_moves_from_rows board y (S x) = if valid (y, (S x))
 
 get_possible_moves : Board -> Nat -> List Position
 get_possible_moves board Z = (count_moves_from_rows board Z 9)
-get_possible_moves board (S n) = (count_moves_from_rows board (S n) 9) ++ (get_possible_moves board n)
+get_possible_moves board (S n) = (get_possible_moves board n) ++ (count_moves_from_rows board (S n) 9)
 
-get_best_move : Board -> List Position -> Int -> Position -> Bool -> Position
-get_best_move _ [] _ best_move _ = best_move
-get_best_move board ((x, y) :: moves) best_score best_move True = let eval = (5 - abs(4 - toIntNat x)) * (5 - abs(4 - toIntNat y)) in
-                                                                      if (winning_move (x, y) White board)
-                                                                         then (x, y)
-                                                                         else if (losing_move (x, y) White board)
-                                                                              then get_best_move board moves best_score best_move True
-                                                                              else if (eval > best_score)
-                                                                                   then get_best_move board moves eval (x, y) True
-                                                                                   else get_best_move board moves best_score best_move True
-
-get_best_move board ((x, y) :: moves) best_score best_move False = let eval = (5 - abs(4 - toIntNat x)) * (5 - abs(4 - toIntNat y)) in
-                                                                       if (winning_move (x, y) Black board)
-                                                                          then (x, y)
-                                                                          else if (losing_move (x, y) Black board)
-                                                                               then get_best_move board moves best_score best_move False
-                                                                               else if (eval > best_score)
-                                                                                    then get_best_move board moves eval (x, y) False
-                                                                                    else get_best_move board moves best_score best_move False
-
-
--- mini_max : Position -> List Position -> Board -> Nat -> Bool -> Int
--- mini_max move _ board Z True = if (winning_move move White board) || (losing_move move Black board)
---                                    then 100
---                                    else if (losing_move move White board) || (winning_move move Black board)
---                                         then -100
---                                         else 0
+-- get_best_move : Board -> List Position -> Int -> Position -> Bool -> Position
+-- get_best_move _ [] _ best_move _ = best_move
+-- get_best_move board ((x, y) :: moves) best_score best_move True = let eval = (5 - abs(4 - toIntNat x)) * (5 - abs(4 - toIntNat y)) in
+--                                                                       if (winning_move (x, y) White board)
+--                                                                          then 100
+--                                                                          else if (losing_move (x, y) White board)
+--                                                                               then get_best_move board moves best_score best_move True
+--                                                                               else if (eval > best_score)
+--                                                                                    then get_best_move board moves eval (x, y) True
+--                                                                                    else get_best_move board moves best_score best_move True
 --
--- mini_max move _ board Z False = if (winning_move move White board) || (losing_move move Black board)
---                                    then -100
---                                    else if (losing_move move White board) || (winning_move move Black board)
---                                         then 100
---                                         else 0
---
--- mini_max last_move (move :: moves) board n True = let new_board = set_on_board board move White
---                                                       (sample :: new_moves) = get_possible_moves board 9 in
---                                                       get_best_move new_board (sample :: new_moves) -100 sample True
---                                                       mini_max last_move moves new_board n True
+-- get_best_move board ((x, y) :: moves) best_score best_move False = let eval = (5 - abs(4 - toIntNat x)) * (5 - abs(4 - toIntNat y)) in
+--                                                                        if (winning_move (x, y) Black board)
+--                                                                           then 100
+--                                                                           else if (losing_move (x, y) Black board)
+--                                                                                then get_best_move board moves best_score best_move False
+--                                                                                else if (eval > best_score)
+--                                                                                     then get_best_move board moves eval (x, y) False
+--                                                                                     else get_best_move board moves best_score best_move False
 
+
+mini_max : List Position -> List Position -> Board -> Nat -> Bool -> Int -> Int
+
+-- terminal State
+
+mini_max [] _ _ Z _ _ = 0
+
+-- AI terminal state
+
+mini_max ((x, y) :: other_moves) available_moves board Z True best_score = if (winning_move (x, y) White board)
+                                                                              then 10000
+                                                                              else if (losing_move (x, y) White board) || (winning_move (x, y) Black board)
+                                                                                   then -10000
+                                                                                   else if (losing_move (x, y) Black board)
+                                                                                        then 10000
+                                                                                        else ((5 - abs(4 - toIntNat x)) * (5 - abs(4 - toIntNat y)) - (mini_max other_moves available_moves board Z False best_score))
+
+-- Player terminal state
+
+mini_max ((x, y) :: other_moves) available_moves board Z False best_score = if (winning_move (x, y) Black board)
+                                                                               then 10000
+                                                                               else if (losing_move (x, y) Black board) || (winning_move (x, y) White board)
+                                                                                    then -10000
+                                                                                    else if (losing_move (x, y) White board)
+                                                                                         then 10000
+                                                                                         else ((5 - abs(4 - toIntNat x)) * (5 - abs(4 - toIntNat y)) - (mini_max other_moves available_moves board Z True best_score))
+
+-- MinMax recursion part
+
+mini_max _ [] _ _ _ best_score = best_score
+
+-- Player simulation
+
+mini_max done_moves (move :: moves) board (S n) False best_score = let new_board = set_on_board board move (Just Black)
+                                                                       new_best = (mini_max (done_moves ++ [move]) (get_possible_moves new_board 9) new_board n True (-100000))
+                                                                       same_level = mini_max done_moves moves board (S n) False
+                                                                   in
+                                                                       if (new_best < best_score)
+                                                                          then same_level new_best
+                                                                          else same_level best_score
+
+-- AI simulation
+
+mini_max done_moves (move :: moves) board (S n) True best_score = let new_board = set_on_board board move (Just White)
+                                                                      new_best = (mini_max (done_moves ++ [move]) (get_possible_moves new_board 9) new_board n False (100000))
+                                                                      same_level = mini_max done_moves moves board (S n) True
+                                                                  in
+                                                                      if (new_best > best_score)
+                                                                         then same_level new_best
+                                                                         else same_level best_score
+
+
+mini_max_controller : Board -> List Position -> Position -> Int -> Position
+
+mini_max_controller board [] best_move best_score = best_move
+
+mini_max_controller board (move :: moves) best_move best_score = let new_board = set_on_board board move (Just White)
+                                                                     potential_best = (mini_max ([move]) (get_possible_moves new_board 9) new_board 1 False (100000))
+                                                                 in
+                                                                     if (potential_best > best_score)
+                                                                        then mini_max_controller board moves move potential_best
+                                                                        else mini_max_controller board moves best_move best_score
 
 get_ai_move : Board -> Position
-get_ai_move board = let (sample :: new_moves) = get_possible_moves board 9 in
-                        get_best_move board (sample :: new_moves) 0 sample True
+get_ai_move board = let (move :: moves) = (get_possible_moves board 9)
+                    in  mini_max_controller board (move :: moves) move (-1000000)
+
+-- get_ai_move board = let (sample :: new_moves) = get_possible_moves board 9 in
+--                         get_best_move board (sample :: new_moves) 0 sample True
 
 ||| Game loop itself
 

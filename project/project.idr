@@ -240,7 +240,7 @@ draw_board get_from_board valid b =
 -- Part 3: An Interactive Game --
 ---------------------------------
 
-||| Finally, implement a playable game of four-not-three using what you have built so far.
+||| input validation
 
 maybe_tuple : Maybe Nat -> Maybe Nat -> Board -> Maybe (Nat, Nat)
 maybe_tuple Nothing Nothing _ = Nothing
@@ -259,12 +259,92 @@ validate_input (x :: y :: z :: m) _ = Nothing
 mapper : String -> Board -> Maybe (Nat, Nat)
 mapper str board = validate_input (map (\a => parsePositive a) (words str)) board
 
+||| state checker
+
+count_pieces_from_rows : List Space -> Nat -> Nat
+count_pieces_from_rows [] n = n
+count_pieces_from_rows (Nothing :: rest) n = count_pieces_from_rows rest n
+count_pieces_from_rows (player :: rest) n = count_pieces_from_rows rest (S n)
+
+count_pieces : Board -> Nat
+count_pieces [] = Z
+count_pieces (row :: board) = (count_pieces_from_rows row Z) + (count_pieces board)
+
 check_state : Board -> Position -> Game_state
-check_state board position = if (winning_move position White board) || (losing_move position Black board)
+check_state board position = if (winning_move position White board)
                                    then White_wins
                                    else if (losing_move position White board) || (winning_move position Black board)
-                                      then Black_wins
-                                      else Continues
+                                        then Black_wins
+                                        else if (losing_move position Black board)
+                                             then White_wins
+                                             else if (count_pieces board) == 61
+                                                  then Draw
+                                                  else Continues
+
+||| MiniMax
+
+count_moves_from_rows : Board -> Nat -> Nat -> List Position
+count_moves_from_rows board y Z = if valid (y, (S Z))
+                                     then case get_from_board board (y, (S Z)) of
+                                               Just _ => []
+                                               Nothing => [(y, (S Z))]
+                                     else []
+
+count_moves_from_rows board y (S x) = if valid (y, (S x))
+                                         then case get_from_board board (y, (S x)) of
+                                                   Just _ => count_moves_from_rows board y x
+                                                   Nothing => (y, (S x)) :: count_moves_from_rows board y x
+                                         else count_moves_from_rows board y x
+
+get_possible_moves : Board -> Nat -> List Position
+get_possible_moves board Z = (count_moves_from_rows board Z 9)
+get_possible_moves board (S n) = (count_moves_from_rows board (S n) 9) ++ (get_possible_moves board n)
+
+get_best_move : Board -> List Position -> Int -> Position -> Bool -> Position
+get_best_move _ [] _ best_move _ = best_move
+get_best_move board ((x, y) :: moves) best_score best_move True = let eval = (5 - abs(4 - toIntNat x)) * (5 - abs(4 - toIntNat y)) in
+                                                                      if (winning_move (x, y) White board)
+                                                                         then (x, y)
+                                                                         else if (losing_move (x, y) White board)
+                                                                              then get_best_move board moves best_score best_move True
+                                                                              else if (eval > best_score)
+                                                                                   then get_best_move board moves eval (x, y) True
+                                                                                   else get_best_move board moves best_score best_move True
+
+get_best_move board ((x, y) :: moves) best_score best_move False = let eval = (5 - abs(4 - toIntNat x)) * (5 - abs(4 - toIntNat y)) in
+                                                                       if (winning_move (x, y) Black board)
+                                                                          then (x, y)
+                                                                          else if (losing_move (x, y) Black board)
+                                                                               then get_best_move board moves best_score best_move False
+                                                                               else if (eval > best_score)
+                                                                                    then get_best_move board moves eval (x, y) False
+                                                                                    else get_best_move board moves best_score best_move False
+
+
+-- mini_max : Position -> List Position -> Board -> Nat -> Bool -> Int
+-- mini_max move _ board Z True = if (winning_move move White board) || (losing_move move Black board)
+--                                    then 100
+--                                    else if (losing_move move White board) || (winning_move move Black board)
+--                                         then -100
+--                                         else 0
+--
+-- mini_max move _ board Z False = if (winning_move move White board) || (losing_move move Black board)
+--                                    then -100
+--                                    else if (losing_move move White board) || (winning_move move Black board)
+--                                         then 100
+--                                         else 0
+--
+-- mini_max last_move (move :: moves) board n True = let new_board = set_on_board board move White
+--                                                       (sample :: new_moves) = get_possible_moves board 9 in
+--                                                       get_best_move new_board (sample :: new_moves) -100 sample True
+--                                                       mini_max last_move moves new_board n True
+
+
+get_ai_move : Board -> Position
+get_ai_move board = let (sample :: new_moves) = get_possible_moves board 9 in
+                        get_best_move board (sample :: new_moves) 0 sample True
+
+||| Game loop itself
 
 game_loop : Bool -> Board -> Game_state -> IO ()
 game_loop _ board Draw = do draw_board get_from_board valid board
@@ -288,17 +368,35 @@ game_loop True board Continues = do draw_board get_from_board valid board
                                          Nothing => do putStrLn "Please select valid coordinates as follows 'x y'."
                                                        game_loop True board Continues
 
-game_loop False board Continues = do draw_board get_from_board valid board
-                                     putStrLn "Player W ?:"
-                                     io_move <- getLine
-                                     case mapper io_move board of
-                                          Just (x, y) => do putStrLn ("your move was x=" ++ show x ++ " y=" ++ show y)
-                                                            case get_from_board board (x, y) of
-                                                                 Nothing => game_loop True (set_on_board board (x, y) (Just White)) (check_state (set_on_board board (x, y) (Just White)) (x, y))
-                                                                 Just x => do putStrLn "And it was occupied!"
-                                                                              game_loop False board Continues
-                                          Nothing => do putStrLn "Please select valid coordinates as follows 'x y'."
-                                                        game_loop False board Continues
+-----------------------------
+-- Part 4: AI with MiniMax --
+-----------------------------
+
+---- Uncomment this block and comment AI block to play against player 2 :)
+
+-- game_loop False board Continues = do draw_board get_from_board valid board
+--                                      putStrLn "Player W ?:"
+--                                      io_move <- getLine
+--                                      case mapper io_move board of
+--                                           Just (x, y) => do putStrLn ("your move was x=" ++ show x ++ " y=" ++ show y)
+--                                                             case get_from_board board (x, y) of
+--                                                                  Nothing => game_loop True (set_on_board board (x, y) (Just White)) (check_state (set_on_board board (x, y) (Just White)) (x, y))
+--                                                                  Just x => do putStrLn "And it was occupied!"
+--                                                                               game_loop False board Continues
+--                                           Nothing => do putStrLn "Please select valid coordinates as follows 'x y'."
+--                                                         game_loop False board Continues
+
+
+---- AI block
+
+game_loop False board Continues = let (x, y) = get_ai_move board in
+                                     do draw_board get_from_board valid board
+                                        putStrLn "Ai is making his move.."
+                                        putStrLn ("AI move was x=" ++ show x ++ " y=" ++ show y)
+                                        game_loop True (set_on_board board (x, y) (Just White)) (check_state (set_on_board board (x, y) (Just White)) (x, y))
+
+
+||| Main controller
 
 new_game : IO ()
 new_game = game_loop True (create_board 9) Continues

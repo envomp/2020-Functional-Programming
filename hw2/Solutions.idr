@@ -202,14 +202,22 @@ insertNode' : List String -> KVStore String -> KVStore String
 insertNode' (k :: [val]) tree = case parsePositive k of
                                     Nothing => tree
                                     Just key => insert ((cast key), val) tree
+wrapper : KVStore String -> IO ()
+wrapper tree = do putStr "The current state is:\n"
+                  drawStore tree
+                  putStr "\nPlease enter a command: "
 
-edit : KVStore String -> IO ()
-edit tree = do putStr "The current state is:\n"
-               drawStore tree
-               putStr "\nPlease enter a command: "
+edit : KVStore String -> IO (KVStore String)
+edit tree = do wrapper tree
                command <- getLine
                case validator (words command) of
                     Repeat => edit tree
-                    Finish => putStr "\n"
+                    Finish => pure tree
                     Delete => edit (deleteNode' (words command) tree)
                     Insert => edit (insertNode' (words command) tree)
+
+main : IO ()
+main = do edit exampleStore
+          putStr "IO is broken. Only works when made into .exe"
+
+-- idris Solutions.ibc -o solution

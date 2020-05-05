@@ -163,13 +163,6 @@ data  Even  :  (n : Nat) -> Type  where
 	Z_even   :  Even Z
 	SS_even  :  Even n -> Even (S (S n))
 
-four_even  :  Even 4
-four_even  =  SS_even (SS_even Z_even)
-
-even_plus_even  :  Even m -> Even n -> Even (m + n)
-even_plus_even Z_even n_even  =  n_even
-even_plus_even (SS_even m_even) n_even  =  SS_even (even_plus_even m_even n_even)
-
 even_plus_sym : {m , n : Nat} -> Even (m + n) -> Even (n + m)
 even_plus_sym {m = m} {n = n} prf = replace plus_sym prf
 

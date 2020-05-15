@@ -39,6 +39,7 @@ data  LEQ  :  (m : Nat) -> (n : Nat) -> Type  where
 	Z_leq  :  LEQ Z n
 	S_leq  :  LEQ m n -> LEQ (S m) (S n)
 
+%hint
 leq_refl  :  LEQ n n
 leq_refl {n = Z}  =  Z_leq
 leq_refl {n = (S n)}  =  S_leq leq_refl
@@ -57,40 +58,41 @@ implementation  Preorder LEQ  where
 	reflexive  =  leq_refl
 	transitive  =  leq_trans
 
-leq_post  :  LEQ m n -> LEQ (S m) (S n)
-leq_post Z_leq = S_leq Z_leq
-leq_post (S_leq x) = S_leq (S_leq x)
-
+%hint
 leq_pred  :  LEQ (S m) (S n) -> LEQ m n
 leq_pred (S_leq m_leq_n)  =  m_leq_n
 
+%hint
 succ_larger  :  LEQ n (S n)
 succ_larger {n = Z}  =  Z_leq
 succ_larger {n = S n}  =  S_leq succ_larger
 
+%hint
 pred_smaller  :  LEQ (S m) n -> LEQ m n
 pred_smaller sm_leq_n  =  transitive succ_larger sm_leq_n
 
+%hint
 zero_plus_right : LEQ (m + 0) (m + n)
 zero_plus_right {m = Z} = Z_leq
-zero_plus_right {m = (S m)} = leq_post zero_plus_right
+zero_plus_right {m = (S m)} = S_leq zero_plus_right
 
-right_plus_sym : LEQ n (plus m (S n))
-right_plus_sym {m = Z} {n = n} = succ_larger
-right_plus_sym {m = (S m)} {n = n} = ?right_plus_sym_rhs_2
+%hint
+zero_plus_left  :  LEQ (0 + n) (m + n)
+zero_plus_left {n = Z} = Z_leq
+zero_plus_left {n = (S n)} {m = Z} = S_leq leq_refl
+zero_plus_left {n = (S n)} {m = (S m)} = S_leq (pred_smaller zero_plus_left)
 
-plus_larger : LEQ n (S (m + n))
-plus_larger {n = Z} {m = m} = Z_leq
-plus_larger {n = (S n)} {m = m} = leq_post right_plus_sym
-
-zero_plus_left : LEQ (0 + n) (m + n)
-zero_plus_left {m = Z} {n = n} = leq_refl
-zero_plus_left {m = (S m)} {n = n} = plus_larger
-
+%hint
 plus_mono_right : LEQ i j -> LEQ (m + i) (m + j)
 plus_mono_right Z_leq = zero_plus_right
-plus_mono_right (S_leq prf) = ?G
+plus_mono_right (S_leq prf) {i = S i} {j = S j} {m = Z} = S_leq prf
+plus_mono_right (S_leq prf) {i = S i} {j = S j} {m = (S m)} = S_leq (plus_mono_right (S_leq prf))
 
+%hint
 plus_mono_left : LEQ i j -> LEQ (i + n) (j + n)
 plus_mono_left Z_leq = zero_plus_left
-plus_mono_left (S_leq prf) = leq_post (plus_mono_left prf)
+plus_mono_left (S_leq prf) = S_leq (plus_mono_left prf)
+
+%hint
+plus_mono : LEQ i j -> LEQ m n -> LEQ (i + m) (j + n)
+plus_mono x y = leq_trans (plus_mono_left x) (plus_mono_right y)

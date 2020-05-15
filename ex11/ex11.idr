@@ -23,7 +23,6 @@ plus_zero_right {n = (S n)}  =  cong {f = S} plus_zero_right
 plus_succ_left  :  {m , n : Nat} -> (S m) + n = S (m + n)
 plus_succ_left  =  Refl
 
-
 %hint
 plus_succ_right  :  {m , n : Nat} -> m + (S n) = S (m + n)
 plus_succ_right {m = Z} {n = n}  =  Refl
@@ -49,6 +48,30 @@ plus_sym {m = (S m)} {n = n}  =
 		QED
 
 %hint
+plus_assoc  :  {m , n , p : Nat} -> m + (n + p) = (m + n) + p
+plus_assoc {m = m} {n = Z} {p = p}  =
+	(m + (0 + p))
+		={ cong {f = (m + )} plus_zero_left }=
+	(m + p)
+		={ cong {f = ( + p)} (sym plus_zero_right) }=
+	((m + 0) + p)
+		QED
+plus_assoc {m = m} {n = (S n)} {p = p}  =
+	(m + (S n + p))
+		={ cong {f = (m + )} plus_succ_left }=
+	(m + S (n + p))
+		={ plus_succ_right }=
+	(S (m + (n + p)))
+		={ cong {f = S} plus_assoc }=
+	(S ((m + n) + p))
+		={ sym plus_succ_left }=
+	(S(m + n) + p)
+		={ cong {f = ( + p)} (sym plus_succ_right) }=
+	((m + S n) + p)
+		QED
+
+
+%hint
 times_succ_left : {m , n : Nat} -> (S m) * n = (m * n) + n
 times_succ_left {m = m} {n = n} =
     ((S m) * n)
@@ -60,15 +83,33 @@ times_succ_left {m = m} {n = n} =
 
 times_succ_right : {m , n : Nat} -> m * (S n) = m + (m * n)
 times_succ_right {m = Z} {n = n} = Refl
-times_succ_right {m = (S k)} {n = n} = ?Refl_2
+times_succ_right {m = (S m)} {n = n} = cong {f = S} wasda where
+	wasda : n + (m * (S n)) = m + (n + (m * n))
+	wasda =
+		(n + (m * (S n)))
+			={ cong {f = (n +)} times_succ_right }=
+		(n + (m + (m * n)))
+			={ plus_assoc }=
+		((n + m) + (m * n))
+			={ cong {f = (+ (m * n))} plus_sym }=
+		((m + n) + (m * n))
+			={ sym plus_assoc }=
+		(m + (n + (m * n)))
+			QED
 
 times_one_left : {n : Nat} -> 1 * n = n
-times_one_left {n = Z} = Refl
-times_one_left {n = (S k)} = times_one_left
+times_one_left {n = n} = plus_zero_right
 
 times_one_right : {n : Nat} -> n * 1 = n
-times_one_right {n = Z} = Refl
-times_one_right {n = (S k)} = times_one_right
+times_one_right {n = n} =
+	(n * 1)
+		={ times_succ_right }=
+	(n + (n * 0))
+		={ cong {f = (n + )} times_zero_right }=
+	(n + 0)
+		={ plus_zero_right }=
+	(n)
+		QED
 
 times_sym : {m , n : Nat} -> m * n = n * m
 times_sym {m = Z} {n = n} =
@@ -93,4 +134,5 @@ twisted_cons : a -> Vect n a -> Vect (n + 1) a
 twisted_cons {n = n} x xs = replace {P = \t => Vect t a} succ_is_plus_one (x :: xs)
 
 reverse_vect : Vect n a -> Vect n a
-reverse_vect xs = reverse xs
+reverse_vect [] = []
+reverse_vect (x :: xs) = replace {P = \t => Vect t a} (sym succ_is_plus_one) ((reverse_vect xs) ++ [x])

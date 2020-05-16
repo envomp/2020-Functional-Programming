@@ -22,11 +22,26 @@ sumsquares (S a) = sumlist (map (\x => x * x) [0..a])
 -- 3
 
 interactive_addition: IO ()
-interactive_addition = do   input <- getLine
-                            print (sum (map (\f => parseInteger f) (words input)))
-                            interactive_addition
+interactive_addition =
+    do
+        putStr "space-separated numbers to add:"
+        line <- getLine
+        putStrLn (case (getSum (words line)) of
+            Nothing => "???"
+            (Just x) => show x)
+        interactive_addition
 
--- TODO
+    where
+        getSum : List String -> Maybe Integer
+        getSum (x :: []) = parseInteger x
+        getSum (x :: xs) =
+            case getSum xs of
+                Nothing => Nothing
+                (Just y) =>
+                    case parseInteger x of
+                        Nothing => Nothing
+                        (Just x) => Just (x + y)
+
 
 -- 4
 

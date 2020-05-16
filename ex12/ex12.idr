@@ -45,26 +45,24 @@ heads_differ diff_head = \Refl => diff_head Refl
 tails_differ : {xs, ys : Vect n a} -> Not (xs = ys) -> Not (x::xs = y::ys)
 tails_differ diff_tail = \Refl => diff_tail Refl
 
+
+tails_differ' : {xs, ys : Vect n a} -> Not (x::xs = y::ys) -> (x = y) -> Not (xs = ys)
+tails_differ' diff_list same_head = \same_tail => diff_list (cons_equal same_head same_tail)
+
 %hint
 decons_differ : DecEq a => {xs, ys : Vect n a} -> Not (x::xs = y::ys) -> Or (Not (x = y)) (Not (xs = ys))
-decons_differ not_same_vec = Left (\same_head => not_same_vec (cons_equal same_head ?G_4))
+decons_differ not_eq {x = x} {y = y} {xs = xs} {ys = ys} =
+    case decEq x y of
+        (Yes prf) => Right (tails_differ' not_eq prf)
+        (No contra) => Left contra
 
 
 implementation [custom] DecEq a => DecEq (Vect n a) where
     decEq [] [] = Yes Refl
-    decEq (x :: xs) (y :: ys) = Yes (cons_equal ?G_6 ?G_7)
-
-    -- ()
-    --     ={ ?G }=
-    -- ()
-    --     ={ ?G }=
-    -- ()
-    --     QED
-
-
-    -- (m + (0 + p))
-    --     ={ ?G }=
-    -- (m + p)
-    --     ={ ?G }=
-    -- ((m + 0) + p)
-    --     QED
+    decEq (x :: xs) (y :: ys) =
+        case decEq x y of
+            (Yes prf_head) =>
+                case decEq xs ys of
+                    (Yes prf_tail) => Yes (cons_equal prf_head prf_tail)
+                    (No contra_tail) => No (tails_differ contra_tail)
+            (No contra_head) => No (heads_differ contra_head)
